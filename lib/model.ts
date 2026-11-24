@@ -294,9 +294,10 @@ function evaluate(traded: Protocol[], terms: TermName[], medAge: number): FitEva
 
 /**
  * Walk-forward range coverage: the share of LATER-listed peers whose
- * realised market cap falls inside the printed P25-P75 range. The range
+ * realised market cap falls inside the walk-forward P25-P75 range. The range
  * factors come from leave-one-out residuals INSIDE the earlier-listed
- * training half only, so no later peer's value leaks into its own range.
+ * training half only, so no later peer's value leaks into its own range,
+ * and they are not the printed full-sample P25-P75 factors.
  * This is the number the dashboard reports as range honesty; the
  * leave-one-out coverage over all traded tokens is reported separately
  * and labelled LOO.
@@ -645,7 +646,165 @@ const FALLBACK_STEPS: string[] = [
   'After 30 days, withdraw half the position from {name} and leave the rest working, then review the return earned against the gas paid; withdrawal gas costs about $3 to $8, about 15 minutes.',
 ];
 
+// --- per-protocol farm steps for the top 20 rows ---------------------------
+// The top 20 rows get steps written for THAT protocol, not its category
+// template: its real first chain (and second chain where the plan spans
+// two), its real product shape as implied by its category + chains, and
+// its own split of the $1,000 deposit. No step invents a feature: a Risk
+// Curator plan deposits into a curated vault on a chain the snapshot
+// lists for it; a CDP plan mints that protocol's own stablecoin; a
+// bridge plan bridges between the chains the snapshot lists; a CEX plan
+// opens an account and trades on the exchange. Rows 21-198 keep the
+// per-category templates above. Lightning Network (#5) is a payment
+// network, not a wallet-connect dapp: step 1 opens a Lightning channel
+// with part of the funded bitcoin, and no later step re-deposits the
+// $1,000 that step 1 funded.
+const TOP20_STEPS: Record<string, string[]> = {
+  'steakhouse-financial': [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Base, and connect it to Steakhouse Financial; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Deposit $700 into a Steakhouse Financial curated vault on Base and $300 into its curated vault on Ethereum, reading the published allocation of each vault before confirming; deposit gas costs about $3 to $8 per vault, about 20 minutes.',
+    'Leave both deposits allocated for at least 30 days, checking the allocation of each vault once a week and noting any reallocation Steakhouse Financial makes; each check takes about 10 minutes and costs nothing.',
+    'After two weeks, add a second $100 deposit to the Base vault so the position shows repeat use; gas costs about $3 to $8, about 10 minutes.',
+    'After 30 days, withdraw half the position from the Base vault and leave the Ethereum vault untouched, then compare the yield earned against the gas paid; withdrawal gas costs about $3 to $8, about 15 minutes.',
+  ],
+  gauntlet: [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Base, and connect it to Gauntlet; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Deposit $1,000 into a Gauntlet curated vault on Base, reading the published allocation and risk parameters of the vault before confirming; deposit gas costs about $3 to $8, about 20 minutes.',
+    'Leave the deposit allocated for at least 30 days, checking once a week whether Gauntlet reallocated the vault or changed its risk parameters and noting each change; each check takes about 10 minutes and costs nothing.',
+    'After two weeks, move $200 of the deposit to a Gauntlet curated vault on Ethereum so the position spans two chains; moving gas costs about $3 to $8, about 15 minutes.',
+    'After 30 days, withdraw half the position from Gauntlet and leave the rest allocated, then compare the yield earned against the gas paid; withdrawal gas costs about $3 to $8, about 15 minutes.',
+  ],
+  veda: [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Ink, and connect it to Veda; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Deposit $1,000 into the Veda allocation vault on Ink and confirm the allocation it publishes before depositing; deposit gas costs about $3 to $8, about 20 minutes.',
+    'Leave the deposit allocated for at least 30 days, reviewing the allocation report once a week and noting where Veda moved funds between Ink and Ethereum; each review takes about 10 minutes and costs nothing.',
+    'After two weeks, add a second $100 deposit to the same Veda vault on Ink so the position shows repeat use; gas costs about $3 to $8, about 10 minutes.',
+    'After 30 days, withdraw half the position from Veda and leave the rest allocated, then compare the return earned against the gas paid; withdrawal gas costs about $3 to $8, about 15 minutes.',
+  ],
+  usdd: [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Tron, and connect it to USDD; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Lock $1,000 of collateral in a USDD vault on Tron and mint $300 of USDD against it, keeping the loan below 30% of the collateral; minting gas costs about $4 to $10, about 20 minutes.',
+    'Check the USDD peg to $1 and the vault collateral ratio once a week for four weeks, topping the collateral up if its value falls; each check takes about 10 minutes and costs nothing.',
+    'Use $150 of the minted USDD once to buy TRX on Tron and keep the remaining minted USDD held; the swap gas costs about $3 to $8, about 10 minutes.',
+    'After 30 days, repay the minted USDD in full and unlock half the collateral, leaving the rest locked; repayment gas costs about $4 to $10, about 20 minutes.',
+  ],
+  'lightning-network': [
+    'Create a Lightning-capable wallet, fund it with $1,000 of bitcoin on Bitcoin, and open a Lightning payment channel with $800 of that bitcoin; the channel-opening fee is about $1 to $5 and opening takes about 20 minutes.',
+    'Send a $200 payment through the open Lightning channel to a merchant or to a second wallet you control, keeping the payment above $50; the routing fee is about $0 to $2 and the payment settles in seconds, about 5 minutes in total.',
+    'Send a second $200 payment through the same channel each week for three more weeks, $800 in total across the month, keeping a record of every payment; each routing fee is about $0 to $2, about 5 minutes per payment.',
+    'After two weeks, receive one $100 payment into the same channel so the record shows two-way use; receiving costs nothing and takes about 5 minutes.',
+    'After 30 days, close the channel and withdraw the remaining bitcoin balance back to the on-chain wallet, leaving nothing locked in the channel; the closing fee is about $1 to $5 and closing takes about 20 minutes.',
+  ],
+  upshift: [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Ethereum, and connect it to Upshift; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Deposit $600 into an Upshift allocation vault on Ethereum and $400 into its allocation vault on Monad, reading the published allocation of each vault before confirming; deposit gas costs about $3 to $8 per vault, about 20 minutes.',
+    'Leave both deposits allocated for at least 30 days, reviewing the allocation report once a week and noting where Upshift moved funds between Ethereum and Monad; each review takes about 10 minutes and costs nothing.',
+    'After two weeks, add a second $100 deposit to the Ethereum vault so the position shows repeat use; gas costs about $3 to $8, about 10 minutes.',
+    'After 30 days, withdraw half the position from the Ethereum vault and leave the Monad vault working, then compare the return earned against the gas paid; withdrawal gas costs about $3 to $8, about 15 minutes.',
+  ],
+  symbiotic: [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Ethereum, and connect it to Symbiotic; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Supply $800 of stablecoins as collateral to a Symbiotic vault on Ethereum, noting which network the vault secures before confirming; supply gas costs about $4 to $10, about 15 minutes.',
+    'Borrow $200 of stablecoins against the supplied collateral on Symbiotic and use it once, keeping the loan below 30% of the collateral so it cannot liquidate; borrowing gas costs about $4 to $10, about 15 minutes.',
+    'Return once a week for four weeks, repay $50 of the loan each week and re-supply the repaid stablecoins to Symbiotic; gas costs about $3 to $8 per week, about 15 minutes per week.',
+    'After 30 days, repay the loan in full on Symbiotic and withdraw half the supplied stablecoins, leaving the rest supplied; repayment and withdrawal gas costs about $4 to $10, about 20 minutes.',
+  ],
+  'plume-vaults': [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Ethereum, and connect it to Plume Vaults; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Deposit $1,000 into a Plume Vaults real-world-asset vault on Ethereum and hold the receipt token it issues, reading the asset backing report before confirming; deposit gas costs about $3 to $8, about 15 minutes.',
+    'Hold the position for at least 30 days, checking the asset backing report Plume Vaults publishes once a week; each check takes about 10 minutes and costs nothing.',
+    'After two weeks, move $200 of the position to a Plume Vaults vault on Plume Mainnet so the position spans two chains; moving gas costs about $3 to $8, about 15 minutes.',
+    'After 30 days, redeem half the position through Plume Vaults back into stablecoins and leave the rest working; redemption gas costs about $3 to $8, about 15 minutes.',
+  ],
+  lofty: [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Algorand, and connect it to Lofty; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Buy $1,000 of Lofty tokenized property tokens on Algorand, choosing a property and reading its rental yield before buying; buying gas costs about $3 to $8, about 20 minutes.',
+    'Hold the property tokens for at least 30 days, collecting the rental distribution Lofty pays once a week and keeping a record of each payout; each collection takes about 5 minutes and costs nothing.',
+    'After two weeks, buy a second $100 of Lofty property tokens in a different property so the position shows repeat use; gas costs about $3 to $8, about 10 minutes.',
+    'After 30 days, sell half the property tokens through Lofty back into stablecoins and leave the rest held; selling gas costs about $3 to $8, about 15 minutes.',
+  ],
+  'hive-protocol': [
+    'Bridge $1,000 of stablecoins from Ethereum onto BSquared using the Hive Protocol official bridge; the bridge fee is about $2 to $10 and the transfer takes about 10 to 20 minutes.',
+    'Swap $400 of the bridged stablecoins for the BSquared native asset on the largest decentralised exchange on Hive Protocol; swap fees and gas cost about $3 to $9, about 15 minutes.',
+    'Add the remaining $600 as liquidity to the largest stablecoin pool on Hive Protocol and hold the LP position; gas costs about $3 to $8, about 15 minutes to add and confirm.',
+    'Return once a week for four weeks and swap at least $100 each time on Hive Protocol, keeping a record of every transaction hash; gas costs about $3 to $8 per week, about 15 minutes per week.',
+    'After 30 days, remove half the liquidity from the pool on Hive Protocol and leave the rest working, then compare the fees earned against the gas paid; withdrawal gas costs about $3 to $8, about 15 minutes.',
+  ],
+  'nonce-capital': [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Ethereum, and connect it to Nonce Capital; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Deposit $1,000 into a Nonce Capital curated vault on Ethereum, reading the published allocation of the vault before confirming; deposit gas costs about $3 to $8, about 20 minutes.',
+    'Leave the deposit allocated for at least 30 days, checking the vault allocation once a week and noting any reallocation Nonce Capital makes; each check takes about 10 minutes and costs nothing.',
+    'After two weeks, move $300 of the deposit to a Nonce Capital curated vault on Optimism so the position spans two chains; moving gas costs about $3 to $8, about 15 minutes.',
+    'After 30 days, withdraw half the position from Nonce Capital and leave the rest allocated, then compare the yield earned against the gas paid; withdrawal gas costs about $3 to $8, about 15 minutes.',
+  ],
+  noble: [
+    'Bridge $1,000 of USDC from Ethereum onto Noble using the Noble official bridge; the bridge fee is about $2 to $10 and the transfer takes about 10 to 20 minutes.',
+    'Swap $400 of the bridged USDC for a second stablecoin on the largest decentralised exchange on Noble; swap fees and gas cost about $3 to $9, about 15 minutes.',
+    'Add the remaining $600 as liquidity to the largest USDC pool on Noble and hold the LP position; gas costs about $3 to $8, about 15 minutes to add and confirm.',
+    'Return once a week for four weeks and swap at least $100 each time on Noble, keeping a record of every transaction hash; gas costs about $3 to $8 per week, about 15 minutes per week.',
+    'After 30 days, remove half the liquidity from the pool on Noble and leave the rest working, then compare the fees earned against the gas paid; withdrawal gas costs about $3 to $8, about 15 minutes.',
+  ],
+  onre: [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Solana, and connect it to OnRe; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Deposit $1,000 into the OnRe reinsurance-backed vault on Solana and hold the receipt token it issues, reading the backing report before confirming; deposit gas costs about $3 to $8, about 15 minutes.',
+    'Hold the position for at least 30 days, checking the reinsurance backing report OnRe publishes once a week and noting the yield it reports; each check takes about 10 minutes and costs nothing.',
+    'After two weeks, add a second $100 deposit to the same OnRe vault on Solana so the position shows repeat use; gas costs about $3 to $8, about 10 minutes.',
+    'After 30 days, redeem half the position through OnRe back into stablecoins and leave the rest working; redemption gas costs about $3 to $8, about 15 minutes.',
+  ],
+  'bittensor-dtao': [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Bittensor, and connect it to Bittensor dTAO; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Swap $500 through Bittensor dTAO for a subnet token on Bittensor, keeping the trade above $100 so it counts as real volume; swap fees and gas cost about $3 to $9, about 15 minutes.',
+    'Add the remaining $500 as liquidity to the largest Bittensor dTAO pool on Bittensor and hold the LP position; gas costs about $3 to $8, about 15 minutes to add and confirm.',
+    'Return once a week for four weeks and swap at least $100 each time through Bittensor dTAO, trading a different subnet token each week; gas costs about $3 to $8 per week, about 15 minutes per week.',
+    'After 30 days, remove half the liquidity from the Bittensor dTAO pool and leave the rest working, then compare the fees earned against the gas paid; withdrawal gas costs about $3 to $8, about 15 minutes.',
+  ],
+  opentrade: [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Avalanche, and connect it to OpenTrade; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Deposit $1,000 into the OpenTrade tokenized Treasury position on Avalanche and hold the receipt token it issues, reading the Treasury backing report before confirming; deposit gas costs about $3 to $8, about 15 minutes.',
+    'Hold the position for at least 30 days, checking the Treasury backing report OpenTrade publishes once a week; each check takes about 10 minutes and costs nothing.',
+    'After two weeks, add a second $100 deposit to the same OpenTrade position on Avalanche so the position shows repeat use; gas costs about $3 to $8, about 10 minutes.',
+    'After 30 days, redeem half the position through OpenTrade back into stablecoins and leave the rest working; redemption gas costs about $3 to $8, about 15 minutes.',
+  ],
+  hyperithm: [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Monad, and connect it to Hyperithm; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Deposit $1,000 into a Hyperithm curated vault on Monad, reading the published allocation of the vault before confirming; deposit gas costs about $3 to $8, about 20 minutes.',
+    'Leave the deposit allocated for at least 30 days, checking the vault allocation once a week and noting any reallocation Hyperithm makes; each check takes about 10 minutes and costs nothing.',
+    'After two weeks, move $200 of the deposit to a Hyperithm curated vault on Ethereum so the position spans two chains; moving gas costs about $3 to $8, about 15 minutes.',
+    'After 30 days, withdraw half the position from Hyperithm and leave the rest allocated, then compare the yield earned against the gas paid; withdrawal gas costs about $3 to $8, about 15 minutes.',
+  ],
+  rockawayx: [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Ethereum, and connect it to RockawayX; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Deposit $600 into a RockawayX curated vault on Ethereum and $400 into its curated vault on Solana, reading the published allocation of each vault before confirming; deposit gas costs about $3 to $8 per vault, about 20 minutes.',
+    'Leave both deposits allocated for at least 30 days, checking the allocation of each vault once a week and noting any reallocation RockawayX makes; each check takes about 10 minutes and costs nothing.',
+    'After two weeks, add a second $100 deposit to the Ethereum vault so the position shows repeat use; gas costs about $3 to $8, about 10 minutes.',
+    'After 30 days, withdraw half the position from the Ethereum vault and leave the Solana vault working, then compare the yield earned against the gas paid; withdrawal gas costs about $3 to $8, about 15 minutes.',
+  ],
+  'k3-capital': [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Monad, and connect it to K3 Capital; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Deposit $1,000 into a K3 Capital curated vault on Monad, reading the published allocation of the vault before confirming; deposit gas costs about $3 to $8, about 20 minutes.',
+    'Leave the deposit allocated for at least 30 days, checking the vault allocation once a week and noting any reallocation K3 Capital makes; each check takes about 10 minutes and costs nothing.',
+    'After two weeks, move $250 of the deposit to a K3 Capital curated vault on Optimism so the position spans two chains; moving gas costs about $3 to $8, about 15 minutes.',
+    'After 30 days, withdraw half the position from K3 Capital and leave the rest allocated, then compare the yield earned against the gas paid; withdrawal gas costs about $3 to $8, about 15 minutes.',
+  ],
+  bigone: [
+    'Open an account with BigONE on its official website and finish its identity check; a custodial exchange takes no wallet connection, so this account is the only way in; the check costs nothing and takes about 10 to 30 minutes.',
+    'Deposit $1,000 of stablecoins into the BigONE account from a wallet; the deposit fee is about $0 to $10 and the funds arrive in about 10 minutes to one day.',
+    'Place one spot trade of $500 on BigONE, buying bitcoin with stablecoins, and leave the order filled rather than cancelled; the trading fee is about 0.1% of the trade, about $0.50, and the trade takes about 5 minutes.',
+    'Place a second spot trade of $250 on BigONE a week later, buying ether, and a third spot trade of $250 the week after, so the account shows repeat trading across the month; each trading fee is about 0.1%, about 5 minutes per trade.',
+    'After 30 days, withdraw $500 from BigONE back to a bank account or a wallet and leave the rest on the exchange, then compare the trading fees paid against the balance; the withdrawal fee is about $1 to $10 and the withdrawal takes about 10 minutes to one day.',
+  ],
+  'ink-bridge': [
+    'Create a fresh wallet, fund it with $1,000 of stablecoins on Ethereum, and connect it to Ink Bridge; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
+    'Bridge $250 of stablecoins from Ethereum to Ink through Ink Bridge, keeping the transfer above $50; the bridge fee is about $2 to $6 and the transfer takes about 10 minutes.',
+    'Bridge a second $250 through Ink Bridge a week later, this time from Ink back to Ethereum, so the record shows two-way use; the bridge fee is about $2 to $6 and the transfer takes about 10 minutes.',
+    'Bridge a third $250 through Ink Bridge in week three and a fourth $250 in week four, $1,000 in total across the month; each bridge fee is about $2 to $6 and each transfer takes about 10 minutes.',
+    'After 30 days, bridge $500 back to Ethereum through Ink Bridge and leave the rest on Ink, then compare the bridge fees paid against the amounts moved; the fee is about $2 to $6 and the transfer takes about 10 minutes.',
+  ],
+};
+
 export function farmSteps(p: Protocol): string[] {
+  const override = TOP20_STEPS[p.slug];
+  if (override !== undefined) return [...override];
   const name = p.name;
   const chain = p.chains[0] ?? 'Ethereum';
   // The funding asset follows the chain: bitcoin on Bitcoin, stablecoins

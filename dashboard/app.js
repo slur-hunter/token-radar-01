@@ -32,7 +32,7 @@
     [rows.length, 'rows ranked'],
     [money(R.total_implied_usd), 'total implied value'],
     ['x' + R.model.loo_miss.toFixed(2), 'out-of-sample miss (leave-one-out)'],
-    [pct(R.model.wf_range_coverage), 'of later-listed peers inside the printed P25–P75 range (walk-forward)'],
+    [pct(R.model.wf_range_coverage), 'of later-listed peers inside the walk-forward P25–P75 range (factors from the earlier-listed half only)'],
     [R.model.brier.toFixed(3) + ' Brier', 'token odds held out (base rate ' + R.model.brier_base.toFixed(3) + ')'],
     [R.farm_count, 'rows worth farming (FARM)'],
   ];
@@ -56,8 +56,8 @@
   var earlyMax = Math.max.apply(null, earlyRows.map(function (r) { return r.tvl_usd; }));
   el('accounting-note').textContent = 'Every one of the ' + a.total + ' protocols sits in exactly one group: ' +
     a.ranked + ' ranked + ' + a.with_token + ' recording a token + ' + a.left_out + ' left out. ' +
-    'The 158 early rows are the pre-token protocols below the $50,000,000 floor with the most TVL, plus the 40 watchlist protocols: ' +
-    'they run from $' + earlyMax.toLocaleString('en-US') + ' of TVL down to the early cutoff of $' +
+    'The board holds 198 rows: the 40 watchlist protocols plus the 158 early rows, the pre-token protocols below the $50,000,000 floor with the most TVL. ' +
+    'The early rows run from $' + earlyMax.toLocaleString('en-US') + ' of TVL down to the early cutoff of $' +
     a.early_cutoff_tvl.toLocaleString('en-US') + '.';
 
   // --- evidence tables
@@ -78,7 +78,7 @@
     '. Kept: ' + (keptTerms.join(', ') || 'none') + '. Dropped: ' + (droppedTerms.join(', ') || 'none') +
     '. Leave-one-out range factors P25 x' + R.model.loo_p25_factor + ', P75 x' + R.model.loo_p75_factor +
     '; ' + pct(R.model.range_coverage) + ' of held-out traded tokens fall inside their printed range (leave-one-out), and ' +
-    pct(R.model.wf_range_coverage) + ' of later-listed peers fall inside theirs (walk-forward). Median traded age ' + R.model.median_age_years + ' years.';
+    pct(R.model.wf_range_coverage) + ' of later-listed peers fall inside the walk-forward P25–P75 range, whose factors come from the earlier-listed half only. Median traded age ' + R.model.median_age_years + ' years.';
 
   // --- filter controls
   var cats = [...new Set(rows.map(function (r) { return r.category || '(none)'; }))].sort();
