@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Launch Radar — 198 pre-token protocols ranked by implied value</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Token Launch Radar</h1>
+    <p class="sub">198 protocols that record no token, ranked by implied value. Snapshot 14 Nov 2026, 758 protocols. A protocol is said to record no token, never that it has none.</p>
+  </div>
+  <div class="method-note">Value if a token launches comes from a model fitted on the 128 traded tokens in this snapshot: log market cap on log TVL plus TVL curvature. Implied value = value if it launches &times; token odds, where the odds are the share of peers that record a token, by how long they ran without one. No protocol name is special-cased.</div>
+</header>
+
+<section class="kpis" id="kpis" aria-label="Key figures"></section>
+
+<section class="panel">
+  <h2>Where all 758 protocols go</h2>
+  <div class="acct" id="accounting"></div>
+  <p class="fine" id="accounting-note"></p>
+</section>
+
+<section class="panel">
+  <h2>Out-of-sample evidence — the model was tested, not asserted</h2>
+  <p class="fine">A term is kept only when it lowers the held-out miss in <b>both</b> tests. Growth, no-token age and the category median were all tested and dropped: each raised the miss in at least one test. Only TVL curvature survived. The range is the leave-one-out P25–P75 factor around each value.</p>
+  <div class="tables">
+    <table id="term-table"><caption>Value miss by term (median absolute log error, as a multiple — lower is better)</caption></table>
+    <table id="odds-table"><caption>Token odds by no-token age, and the Brier score</caption></table>
+  </div>
+  <p class="fine" id="evidence-note"></p>
+</section>
+
+<section class="panel" id="board-panel">
+  <h2>The board</h2>
+  <div class="filters">
+    <div class="group" id="group-filters" role="group" aria-label="Row group">
+      <button data-group="all" class="on">All rows</button>
+      <button data-group="watchlist">Watchlist</button>
+      <button data-group="early">Early</button>
+      <button data-group="off_list">Off-list</button>
+    </div>
+    <div class="group" id="verdict-filters" role="group" aria-label="Verdict">
+      <button data-verdict="all" class="on">All verdicts</button>
+      <button data-verdict="FARM">FARM</button>
+      <button data-verdict="MARGINAL">MARGINAL</button>
+      <button data-verdict="SKIP">SKIP</button>
+    </div>
+    <input id="search" type="search" placeholder="Search name or slug" aria-label="Search">
+    <select id="category" aria-label="Category"><option value="">All categories</option></select>
+    <select id="chain" aria-label="Chain"><option value="">All chains</option></select>
+    <label class="deposit">Deposit $ <input id="deposit" type="number" min="100" max="100000" step="100" value="1000"></label>
+    <button id="reset">Reset</button>
+  </div>
+  <p class="fine" id="count"></p>
+  <div class="table-wrap">
+  <table id="board">
+    <thead><tr>
+      <th data-sort="rank">Rank</th><th>Protocol</th><th data-sort="tvl_usd">TVL</th>
+      <th>7-day</th><th data-sort="age_years">No-token age</th><th>Token odds</th>
+      <th>Value if it launches</th><th data-sort="implied_value_usd">Implied value</th>
+      <th>Verdict</th><th>Net / hour</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  </div>
+</section>
+
+<section class="panel" id="detail-panel">
+  <h2>Protocol detail</h2>
+  <div id="detail"><p class="fine">Click any row to see its full record, farm plan and the model terms behind its value.</p></div>
+</section>
+
+<footer><p class="fine">Verdict at a $1,000 deposit unless the deposit control says otherwise. Airdrop allocations go per active wallet, not pro-rata to TVL, so the verdict assumes farmers as a group receive 5% of the launch value split across 10,000 active wallets, scaled with the deposit up to 10x the $1,000 reference, less fees: net = implied value &times; 0.05 / 10,000 &minus; fees, over 12 hours a year. FARM when net is at least $25 an hour, MARGINAL when it is at least $0, otherwise SKIP. Farm steps state what to do, what it costs and how long it takes. Nothing here predicts whether or when a token launches.</p></footer>
+<script src="../data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
