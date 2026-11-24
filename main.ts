@@ -79,6 +79,6 @@ writeFileSync(join(out, 'dossier.json'), buildDossier(out, { text_max_bytes: TEX
 
 process.stdout.write(
   `token radar: ${snapshot.protocols.length} protocols, ${snapshot.watchlist.length} on the watchlist, ${board.length} rows scored\n` +
-    `token radar: model LOO miss x${radar.model.loo_miss.toFixed(2)}, walk-forward miss x${radar.model.wf_miss.toFixed(2)}, range covers ${radar.model.range_coverage} of held-out tokens\n` +
+    `token radar: model LOO miss x${radar.model.loo_miss.toFixed(2)}, walk-forward miss x${radar.model.wf_miss.toFixed(2)}, walk-forward range covers ${radar.model.wf_range_coverage} of later-listed peers (LOO ${radar.model.range_coverage})\n` +
     `token radar: wrote ${join(out, 'board.json')}, ${join(out, 'data.js')}, ${join(out, 'dashboard')}, ${join(out, 'screenshots')} (${shots.length} images) and ${join(out, 'dossier.json')}\n`,
 );

@@ -12,20 +12,20 @@
     <h1>Token Launch Radar</h1>
     <p class="sub">198 protocols that record no token, ranked by implied value. Snapshot 14 Nov 2026, 758 protocols. A protocol is said to record no token, never that it has none.</p>
   </div>
-  <div class="method-note">Value if a token launches comes from a model fitted on the 128 traded tokens in this snapshot: log market cap on log TVL plus TVL curvature. Implied value = value if it launches &times; token odds, where the odds are the share of peers that record a token, by how long they ran without one. No protocol name is special-cased.</div>
+  <div class="method-note">Value if a token launches comes from a model fitted on the 128 traded tokens in this snapshot: log market cap on log TVL plus the terms that lowered the held-out miss in both tests. Implied value = value if it launches &times; token odds, where the odds are the share of peers that record a token, by how long they ran without one. No protocol name is special-cased.</div>
 </header>
 
 <section class="kpis" id="kpis" aria-label="Key figures"></section>
 
-<section class="panel">
+<section class="panel" id="accounting-panel">
   <h2>Where all 758 protocols go</h2>
   <div class="acct" id="accounting"></div>
   <p class="fine" id="accounting-note"></p>
 </section>
 
-<section class="panel">
+<section class="panel" id="evidence-panel">
   <h2>Out-of-sample evidence — the model was tested, not asserted</h2>
-  <p class="fine">A term is kept only when it lowers the held-out miss in <b>both</b> tests. Growth, no-token age and the category median were all tested and dropped: each raised the miss in at least one test. Only TVL curvature survived. The range is the leave-one-out P25–P75 factor around each value.</p>
+  <p class="fine">A term is kept only when it lowers the held-out miss in <b>both</b> tests: leave-one-out and walk-forward (earlier-listed tokens price later-listed ones). The range is the leave-one-out P25–P75 factor around each value; its honesty is measured walk-forward, on later-listed peers only.</p>
   <div class="tables">
     <table id="term-table"><caption>Value miss by term (median absolute log error, as a multiple — lower is better)</caption></table>
     <table id="odds-table"><caption>Token odds by no-token age, and the Brier score</caption></table>
@@ -51,7 +51,7 @@
     <input id="search" type="search" placeholder="Search name or slug" aria-label="Search">
     <select id="category" aria-label="Category"><option value="">All categories</option></select>
     <select id="chain" aria-label="Chain"><option value="">All chains</option></select>
-    <label class="deposit">Deposit $ <input id="deposit" type="number" min="100" max="100000" step="100" value="1000"></label>
+    <label class="deposit">Deposit $ <input id="deposit" type="number" min="100" max="100000" step="100" value="1000"> <span class="fine">scales economics only; steps are written for $1,000, scaling caps at 10x</span></label>
     <button id="reset">Reset</button>
   </div>
   <p class="fine" id="count"></p>
@@ -73,7 +73,19 @@
   <div id="detail"><p class="fine">Click any row to see its full record, farm plan and the model terms behind its value.</p></div>
 </section>
 
-<footer><p class="fine">Verdict at a $1,000 deposit unless the deposit control says otherwise. Airdrop allocations go per active wallet, not pro-rata to TVL, so the verdict assumes farmers as a group receive 5% of the launch value split across 10,000 active wallets, scaled with the deposit up to 10x the $1,000 reference, less fees: net = implied value &times; 0.05 / 10,000 &minus; fees, over 12 hours a year. FARM when net is at least $25 an hour, MARGINAL when it is at least $0, otherwise SKIP. Farm steps state what to do, what it costs and how long it takes. Nothing here predicts whether or when a token launches.</p></footer>
+<section class="panel" id="traded-panel">
+  <h2>Already trading — protocols with a recorded market cap</h2>
+  <p class="fine" id="traded-note"></p>
+  <input id="traded-search" type="search" placeholder="Search the traded list by name or slug" aria-label="Search traded list">
+  <div class="table-wrap">
+  <table id="traded">
+    <thead><tr><th>Protocol</th><th>TVL</th><th>7-day</th><th>Market cap (realised)</th><th>Cap / TVL</th></tr></thead>
+    <tbody id="traded-rows"></tbody>
+  </table>
+  </div>
+</section>
+
+<footer><p class="fine">Verdicts in the board are at the $1,000 reference deposit, exactly as board.json states them; the deposit control scales the same formula and never a second one. The farm economics, one shared formula: fees = $60 + $15 &times; min(3, number of chains the protocol runs on); airdrop allocations go per active wallet, not pro-rata to TVL, so farmers as a group are assumed to receive 5% of the launch value split across 10,000 active wallets, scaled linearly with the deposit up to 10x the $1,000 reference; net = implied value &times; 0.05 / 10,000 &minus; fees, over 12 assumed farming hours a year. FARM when net is at least $25 an hour, MARGINAL when it is at least $0, otherwise SKIP. Off-list rows (wrapped, staked or bridged products and custodial exchanges) are never FARM: the radar does not present a product of a token that already trades as worth farming for a new token. Farm steps state what to do, what it costs and how long it takes, and are written for the $1,000 reference deposit. Range honesty is walk-forward: the share of later-listed peers whose realised market cap falls inside the printed P25–P75 range, with the range factors taken from the earlier-listed half only. Nothing here predicts whether or when a token launches.</p></footer>
 <script src="../data.js"></script>
 <script src="app.js"></script>
 </body>

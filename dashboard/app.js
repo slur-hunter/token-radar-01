@@ -1,16 +1,27 @@
 // Token Launch Radar dashboard: renders window.RADAR (written by main.ts)
 // with no network. Sorting, filtering and the detail view are all local.
+//
+// Farm economics have ONE source of truth: board.json. The table reads each
+// row's verdict, net and net-per-hour from the board at the $1,000 reference
+// deposit. The deposit control only scales that same formula (5% of launch
+// value across 10,000 wallets, linear up to 10x, less fees, over 12 assumed
+// farming hours a year); it never re-implements the verdict another way.
 (function () {
   var R = window.RADAR;
   if (!R) { document.body.innerHTML = '<p>Data file missing.</p>'; return; }
   var rows = R.rows;
-  var state = { group: 'all', verdict: 'all', q: '', cat: '', chain: '', sort: 'rank', dir: 1, deposit: R.deposit_usd };
+  var state = { group: 'all', verdict: 'all', q: '', cat: '', chain: '', sort: 'rank', dir: 1, deposit: R.deposit_usd, tradedQ: '' };
 
   function money(n) {
-    if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
-    if (n >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
-    if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
-    return '$' + Math.round(n);
+    if (Math.abs(n) < 0.5) return '$0';
+    var neg = n < 0;
+    var a = Math.abs(n);
+    var s;
+    if (a >= 1e9) s = '$' + (a / 1e9).toFixed(2) + 'B';
+    else if (a >= 1e6) s = '$' + (a / 1e6).toFixed(1) + 'M';
+    else if (a >= 1e3) s = '$' + (a / 1e3).toFixed(1) + 'K';
+    else s = '$' + Math.round(a);
+    return neg ? '-' + s : s;
   }
   function pct(n) { return (n * 100).toFixed(1) + '%'; }
   function el(id) { return document.getElementById(id); }
@@ -21,7 +32,7 @@
     [rows.length, 'rows ranked'],
     [money(R.total_implied_usd), 'total implied value'],
     ['x' + R.model.loo_miss.toFixed(2), 'out-of-sample miss (leave-one-out)'],
-    [pct(R.model.range_coverage), 'of held-out tokens inside the printed P25-P75 range'],
+    [pct(R.model.wf_range_coverage), 'of later-listed peers inside the printed P25–P75 range (walk-forward)'],
     [R.model.brier.toFixed(3) + ' Brier', 'token odds held out (base rate ' + R.model.brier_base.toFixed(3) + ')'],
     [R.farm_count, 'rows worth farming (FARM)'],
   ];
@@ -35,12 +46,19 @@
     [a.total, 'protocols in the snapshot'],
     [a.ranked, 'ranked pre-token rows'],
     [a.with_token, 'already record a token'],
+    [a.with_mcap, 'of them carry a recorded market cap (listed below)'],
     [a.left_out, 'pre-token, left out'],
-    [a.left_out_wrapped, 'of them wrapped / staked / bridged products'],
+    [a.left_out_off_list, 'of them off-list (wrapped / staked / bridged / exchange)'],
+    [a.left_out_above_floor, 'of them above the $50M floor'],
     [a.left_out_below_cutoff, 'of them below the early TVL cutoff'],
   ].map(function (k) { return '<div><b>' + k[0] + '</b><span>' + k[1] + '</span></div>'; }).join('');
-  el('accounting-note').textContent = 'Every one of the ' + a.total + ' protocols sits in exactly one group. The early cutoff is $' +
-    a.early_cutoff_tvl.toLocaleString('en-US') + ' of TVL: the 158 early rows are the pre-token protocols below the $50,000,000 floor with the most TVL, plus the 40 watchlist protocols.';
+  var earlyRows = rows.filter(function (r) { return r.early; });
+  var earlyMax = Math.max.apply(null, earlyRows.map(function (r) { return r.tvl_usd; }));
+  el('accounting-note').textContent = 'Every one of the ' + a.total + ' protocols sits in exactly one group: ' +
+    a.ranked + ' ranked + ' + a.with_token + ' recording a token + ' + a.left_out + ' left out. ' +
+    'The 158 early rows are the pre-token protocols below the $50,000,000 floor with the most TVL, plus the 40 watchlist protocols: ' +
+    'they run from $' + earlyMax.toLocaleString('en-US') + ' of TVL down to the early cutoff of $' +
+    a.early_cutoff_tvl.toLocaleString('en-US') + '.';
 
   // --- evidence tables
   el('term-table').innerHTML = '<thead><tr><th>Model</th><th>Leave-one-out</th><th>Walk-forward</th><th>Kept?</th></tr></thead><tbody>' +
@@ -53,10 +71,14 @@
     R.model.odds_buckets.map(function (b) {
       return '<tr><td>' + esc(b.label) + '</td><td>' + b.n + '</td><td>' + pct(b.odds) + '</td></tr>';
     }).join('') + '</tbody>';
+  var keptTerms = R.model.term_tests.filter(function (t) { return t.kept; }).map(function (t) { return t.term; });
+  var droppedTerms = R.model.term_tests.filter(function (t) { return !t.kept; }).map(function (t) { return t.term; });
   el('evidence-note').textContent = 'Fitted on ' + R.model.fitted_on + ' traded tokens (positive market cap). Final coefficients: ' +
     R.model.coefficients.map(function (c) { return c.name + ' ' + c.value.toFixed(3); }).join(', ') +
+    '. Kept: ' + (keptTerms.join(', ') || 'none') + '. Dropped: ' + (droppedTerms.join(', ') || 'none') +
     '. Leave-one-out range factors P25 x' + R.model.loo_p25_factor + ', P75 x' + R.model.loo_p75_factor +
-    '; ' + pct(R.model.range_coverage) + ' of held-out traded tokens fall inside their printed range. Median traded age ' + R.model.median_age_years + ' years.';
+    '; ' + pct(R.model.range_coverage) + ' of held-out traded tokens fall inside their printed range (leave-one-out), and ' +
+    pct(R.model.wf_range_coverage) + ' of later-listed peers fall inside theirs (walk-forward). Median traded age ' + R.model.median_age_years + ' years.';
 
   // --- filter controls
   var cats = [...new Set(rows.map(function (r) { return r.category || '(none)'; }))].sort();
@@ -64,22 +86,25 @@
   el('category').innerHTML += cats.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('');
   el('chain').innerHTML += chains.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('');
 
-  function verdictFor(r, dep) {
-    // Same stated assumption as lib/model.ts: farmers as a group receive 5%
-    // of launch value across 10,000 active wallets, scaled with the deposit
-    // up to 10x the $1,000 reference deposit, less fees.
+  // One shared formula with lib/model.ts. At the $1,000 reference deposit
+  // the stored board.json values are returned verbatim; any other deposit
+  // scales them with the same constants (5% / 10,000 wallets, 10x cap).
+  function economics(r, dep) {
+    if (dep === R.deposit_usd) return { net: r.net_usd, perHour: r.net_per_hour_usd, v: r.verdict };
     var share = 0.05 / 10000 * Math.min(dep / 1000, 10);
     var net = r.implied_value_usd * share - r.fees_usd;
-    var perHour = net / r.hours_year;
-    return { net: net, perHour: perHour, v: perHour >= 25 ? 'FARM' : perHour >= 0 ? 'MARGINAL' : 'SKIP' };
+    var perHour = net / r.assumed_farm_hours_per_year;
+    var v = perHour >= 25 ? 'FARM' : perHour >= 0 ? 'MARGINAL' : 'SKIP';
+    if (r.off_list && v === 'FARM') v = 'MARGINAL';
+    return { net: net, perHour: perHour, v: v };
   }
 
   function filtered() {
     var list = rows.filter(function (r) {
       if (state.group === 'watchlist' && !r.watchlist) return false;
-      if (state.group === 'early' && !(r.early && !r.off_list)) return false;
+      if (state.group === 'early' && !r.early) return false;
       if (state.group === 'off_list' && !r.off_list) return false;
-      if (state.verdict !== 'all' && verdictFor(r, state.deposit).v !== state.verdict) return false;
+      if (state.verdict !== 'all' && economics(r, state.deposit).v !== state.verdict) return false;
       if (state.cat && (r.category || '(none)') !== state.cat) return false;
       if (state.chain && r.chains.indexOf(state.chain) === -1) return false;
       if (state.q && (r.name + ' ' + r.slug).toLowerCase().indexOf(state.q) === -1) return false;
@@ -97,7 +122,7 @@
     var list = filtered();
     el('count').textContent = list.length + ' of ' + rows.length + ' rows shown. Click a row for its detail, farm plan and model terms.';
     el('rows').innerHTML = list.map(function (r) {
-      var vf = verdictFor(r, state.deposit);
+      var vf = economics(r, state.deposit);
       var badge = r.watchlist ? '<span class="badge wl">WATCHLIST</span>' : r.off_list ? '<span class="badge off">OFF-LIST</span>' : '';
       var vclass = vf.v === 'FARM' ? 'farm' : vf.v === 'MARGINAL' ? 'marg' : 'skip';
       return '<tr data-slug="' + esc(r.slug) + '"><td>' + r.rank + '</td>' +
@@ -120,9 +145,9 @@
   function showDetail(slug, doScroll) {
     var r = rows.find(function (x) { return x.slug === slug; });
     if (!r) return;
-    var vf = verdictFor(r, state.deposit);
+    var vf = economics(r, state.deposit);
     el('detail').innerHTML =
-      '<h3>#' + r.rank + ' ' + esc(r.name) + (r.watchlist ? ' <span class="badge wl">WATCHLIST</span>' : '') + '</h3>' +
+      '<h3>#' + r.rank + ' ' + esc(r.name) + (r.watchlist ? ' <span class="badge wl">WATCHLIST</span>' : '') + (r.off_list ? ' <span class="badge off">OFF-LIST</span>' : '') + '</h3>' +
       '<p class="fine">' + esc(r.slug) + ' · ' + esc(r.category || 'No category') + ' · Chains: ' + esc(r.chains.join(', ')) + ' · ' + r.risk + ' risk</p>' +
       '<div class="detail-grid">' +
       '<div><b>' + money(r.tvl_usd) + '</b><span>TVL</span></div>' +
@@ -132,14 +157,33 @@
       '<div><b>' + money(r.value_if_launches_usd) + '</b><span>value if a token launches</span></div>' +
       '<div><b>' + money(r.implied_value_usd) + '</b><span>implied value (' + money(r.range_lo_usd) + ' – ' + money(r.range_hi_usd) + ')</span></div>' +
       '<div><b>' + vf.v + '</b><span>verdict at $' + state.deposit.toLocaleString('en-US') + ' deposit</span></div>' +
-      '<div><b>' + money(vf.net) + ' net · ' + money(vf.perHour) + '/h</b><span>after $' + r.fees_usd + ' fees, ' + r.hours_year + ' hours a year</span></div>' +
+      '<div><b>' + money(vf.net) + ' net · ' + money(vf.perHour) + '/h</b><span>after $' + r.fees_usd + ' fees, ' + r.assumed_farm_hours_per_year + ' assumed hours a year</span></div>' +
       '</div>' +
       '<h4>Model terms behind its value</h4><p class="fine">' +
       r.model_terms.map(function (t) { return esc(t.name) + ' contributes ' + t.value.toFixed(2) + ' to log value'; }).join('; ') +
       '. Fitted on ' + R.model.fitted_on + ' traded tokens; leave-one-out miss x' + R.model.loo_miss.toFixed(2) + '.</p>' +
-      '<h4>Farm plan — $' + state.deposit.toLocaleString('en-US') + ' deposit</h4><ol>' +
+      '<h4>Farm plan — $1,000 deposit</h4><p class="fine">Steps are written for the $1,000 reference deposit.</p><ol>' +
       r.farm_steps.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ol>';
     if (doScroll !== false) el('detail-panel').scrollIntoView();
+  }
+
+  // --- already-traded list: every protocol with a recorded market cap
+  function renderTraded() {
+    var list = R.traded.filter(function (t) {
+      return !state.tradedQ || (t.name + ' ' + t.slug).toLowerCase().indexOf(state.tradedQ) !== -1;
+    });
+    el('traded-note').textContent = list.length + ' of ' + R.traded.length +
+      ' protocols carry a recorded market cap, with their realised values. The other ' +
+      (R.accounting.with_token - R.accounting.with_mcap) +
+      ' protocols that record a token carry no market cap in this snapshot, so no realised value is shown for them.';
+    el('traded-rows').innerHTML = list.map(function (t) {
+      var mult = t.tvl_usd > 0 ? (t.mcap_usd / t.tvl_usd) : 0;
+      return '<tr><td><span class="name">' + esc(t.name) + '</span><div class="meta">' + esc(t.slug) + ' · ' + esc(t.category || 'No category') + ' · ' + esc(t.chains.slice(0, 3).join(', ')) + '</div></td>' +
+        '<td>' + money(t.tvl_usd) + '</td>' +
+        '<td>' + (t.change_7d === null ? '—' : (t.change_7d > 0 ? '+' : '') + t.change_7d.toFixed(1) + '%') + '</td>' +
+        '<td><b>' + money(t.mcap_usd) + '</b></td>' +
+        '<td>' + mult.toFixed(2) + 'x</td></tr>';
+    }).join('');
   }
 
   // --- events
@@ -165,9 +209,10 @@
     e.target.value = state.deposit;
     render();
   });
+  el('traded-search').addEventListener('input', function (e) { state.tradedQ = e.target.value.toLowerCase(); renderTraded(); });
   el('reset').addEventListener('click', function () {
-    state = { group: 'all', verdict: 'all', q: '', cat: '', chain: '', sort: 'rank', dir: 1, deposit: R.deposit_usd };
-    el('search').value = ''; el('category').value = ''; el('chain').value = ''; el('deposit').value = R.deposit_usd;
+    state = { group: 'all', verdict: 'all', q: '', cat: '', chain: '', sort: 'rank', dir: 1, deposit: R.deposit_usd, tradedQ: '' };
+    el('search').value = ''; el('category').value = ''; el('chain').value = ''; el('deposit').value = R.deposit_usd; el('traded-search').value = '';
     document.querySelectorAll('.filters button').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-group') === 'all' || x.getAttribute('data-verdict') === 'all'); });
     render();
   });
@@ -179,24 +224,34 @@
     });
   });
 
-  // --- deep links for the screenshots: #detail=<slug>, #filter=watchlist|farm
+  // --- deep links for the screenshots: #detail=<slug>, #filter=watchlist|farm, #shot=board|filter|detail
   var hash = window.location.hash.slice(1);
   var params = new URLSearchParams(hash);
+  var shot = params.get('shot');
   var f = params.get('filter');
-  if (f === 'watchlist' || f === 'farm') {
-    // A filtered deep link is screenshotted from scroll 0: move the board
-    // panel to the top so the filtered rows are what the shot shows.
-    var boardPanel = el('board-panel');
-    boardPanel.parentNode.insertBefore(boardPanel, el('kpis'));
+  if (shot === 'board' || shot === 'filter') {
+    // A screenshot is taken from scroll 0, so the accounting and evidence
+    // panels are hidden for the shot and the KPI strip sits above the board.
+    el('accounting-panel').style.display = 'none';
+    el('evidence-panel').style.display = 'none';
   }
-  if (f === 'watchlist') {
-    state.group = 'watchlist';
-    document.querySelectorAll('#group-filters button').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-group') === 'watchlist'); });
-  } else if (f === 'farm') {
-    state.verdict = 'FARM';
-    document.querySelectorAll('#verdict-filters button').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-verdict') === 'FARM'); });
+  if (f === 'watchlist' || f === 'farm' || shot === 'filter') {
+    if (shot !== 'filter') {
+      // A filtered deep link is screenshotted from scroll 0: move the board
+      // panel to the top so the filtered rows are what the shot shows.
+      var boardPanel = el('board-panel');
+      boardPanel.parentNode.insertBefore(boardPanel, el('kpis'));
+    }
+    if (f === 'watchlist' || shot === 'filter') {
+      state.group = 'watchlist';
+      document.querySelectorAll('#group-filters button').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-group') === 'watchlist'); });
+    } else if (f === 'farm') {
+      state.verdict = 'FARM';
+      document.querySelectorAll('#verdict-filters button').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-verdict') === 'FARM'); });
+    }
   }
   render();
+  renderTraded();
   var d = params.get('detail');
   if (d) {
     // The headless screenshot shell captures from scroll 0, so a deep-linked
