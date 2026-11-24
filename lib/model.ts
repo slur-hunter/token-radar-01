@@ -705,9 +705,9 @@ const TOP20_STEPS: Record<string, string[]> = {
   symbiotic: [
     'Create a fresh wallet, fund it with $1,000 of stablecoins on Ethereum, and connect it to Symbiotic; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
     'Supply $800 of stablecoins as collateral to a Symbiotic vault on Ethereum, noting which network the vault secures before confirming; supply gas costs about $4 to $10, about 15 minutes.',
-    'Borrow $200 of stablecoins against the supplied collateral on Symbiotic and use it once, keeping the loan below 30% of the collateral so it cannot liquidate; borrowing gas costs about $4 to $10, about 15 minutes.',
-    'Return once a week for four weeks, repay $50 of the loan each week and re-supply the repaid stablecoins to Symbiotic; gas costs about $3 to $8 per week, about 15 minutes per week.',
-    'After 30 days, repay the loan in full on Symbiotic and withdraw half the supplied stablecoins, leaving the rest supplied; repayment and withdrawal gas costs about $4 to $10, about 20 minutes.',
+    'Supply a second $200 of stablecoins to a Symbiotic vault that delegates to a different network than the first vault, so the position secures two networks; supply gas costs about $4 to $10, about 15 minutes.',
+    'Once a week for four weeks, check the vault dashboard for the allocation of each vault across operators and networks and any slashing events, and note the share value; each review takes about 10 minutes and costs nothing.',
+    'After 30 days, start a withdrawal of half the supplied stablecoins from the first vault, wait for the unbonding epoch to finish, then claim the collateral and compare the return earned against the gas paid; withdrawal and claim gas costs about $4 to $10, about 20 minutes.',
   ],
   'plume-vaults': [
     'Create a fresh wallet, fund it with $1,000 of stablecoins on Ethereum, and connect it to Plume Vaults; bridging and gas cost about $5 to $15, about 20 minutes to set up.',
