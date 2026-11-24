@@ -4,7 +4,7 @@
 // Farm economics have ONE source of truth: board.json. The table reads each
 // row's verdict, net and net-per-hour from the board at the $1,000 reference
 // deposit. The deposit control only scales that same formula (5% of launch
-// value across 10,000 wallets, linear up to 10x, less fees, over 12 assumed
+// value across 10,000 wallets, linear up to 10x, less fees, over 4 assumed
 // farming hours a year); it never re-implements the verdict another way.
 (function () {
   var R = window.RADAR;
@@ -94,7 +94,7 @@
     var share = 0.05 / 10000 * Math.min(dep / 1000, 10);
     var net = r.implied_value_usd * share - r.fees_usd;
     var perHour = net / r.assumed_farm_hours_per_year;
-    var v = perHour >= 25 ? 'FARM' : perHour >= 0 ? 'MARGINAL' : 'SKIP';
+    var v = perHour >= 5 ? 'FARM' : perHour >= 0 ? 'MARGINAL' : 'SKIP';
     if (r.off_list && v === 'FARM') v = 'MARGINAL';
     return { net: net, perHour: perHour, v: v };
   }

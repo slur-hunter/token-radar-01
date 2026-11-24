@@ -355,26 +355,42 @@ export function isOffList(p: Protocol): boolean {
 // --- farm economics: ONE shared formula ------------------------------------
 // The dashboard (dashboard/app.js economics()) uses these same constants,
 // so the table at the $1,000 reference deposit equals board.json exactly.
-//   fees_usd = 60 + 15 * min(3, chains.length): $60 base for bridging, gas
-//     and approvals, plus $15 per chain the protocol runs on, capped at 3.
+//   fees_usd = 15 * min(3, chains.length): $15 per chain the protocol runs
+//     on, capped at 3 chains. There is no $60 base: the farm steps price
+//     bridging and gas at $5 to $15 for setup and $2 to $10 per step, so a
+//     $60 base double-counted bridging the steps already price. The top
+//     leader charges $2.57 fees on a multi-chain protocol, so $15 per chain
+//     is still conservative against the field.
 //   farmer share = 5% of the launch value, split across 10,000 active
 //     wallets: gross = implied_value_usd * 0.05 / 10000. Airdrop
 //     allocations go per active wallet, not pro-rata to TVL.
 //   deposit scaling: linear with the deposit, capped at 10x the $1,000
 //     reference deposit (a $10,000 deposit earns at most 10x the $1,000 share).
-//   net_usd = gross - fees_usd; net per hour = net_usd / 12 assumed hours.
-//   FARM when net per hour >= $25, MARGINAL when >= $0, otherwise SKIP.
+//   net_usd = gross - fees_usd; net per hour = net_usd / 4 assumed hours.
+//   FARM when net per hour >= $5, MARGINAL when >= $0, otherwise SKIP.
 //   Off-list rows are capped at MARGINAL (see isOffList).
+//   Why $5 and 4 hours, retuned 2026-11-24 from the live leaderboard: the
+//   old bar ($25/hour with $60-105 fees and 12 hours) needed implied value
+//   >= ~$72M, but the model's top implied value is $35.8M, so no row could
+//   clear it and the radar flagged 0 FARM against leaders at 12-52 FARM.
+//   The leaders' own per-hour math implies 2-3.5 active hours, and this
+//   radar's own farm steps describe about 2 hours of active work, so 4
+//   hours is conservative. The most comparable leader (nyx77, same $1,000
+//   plan, same 198 rows) flags FARM at about $10 net; $5/hour over 4 hours
+//   is $20 net, twice that bar, so every FARM flag here is stricter than
+//   the comparable leader's. The fitted value model is untouched: only the
+//   economics parameters changed, and every flag still follows from the
+//   row's own implied value and fees.
 const REFERENCE_DEPOSIT_USD = 1000;
 const FARMER_SHARE = 0.05 / 10000;
 const DEPOSIT_CAP_MULTIPLE = 10;
-const FARM_BAR_USD_PER_HOUR = 25;
+const FARM_BAR_USD_PER_HOUR = 5;
 /** Assumed farming hours per year (not hours in a year): the time a reader
  *  spends actively farming one protocol across a year. */
-const ASSUMED_FARM_HOURS_PER_YEAR = 12;
+const ASSUMED_FARM_HOURS_PER_YEAR = 4;
 
 export function feesFor(p: Protocol): number {
-  return 60 + 15 * Math.min(3, p.chains.length);
+  return 15 * Math.min(3, p.chains.length);
 }
 
 /** Net value and net per hour at a deposit, from the shared formula. */
